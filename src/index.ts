@@ -35,7 +35,7 @@ async function handle(interaction: Interaction, context: CommandContext): Promis
     else await command.submit?.(interaction, context);
   } catch (error) {
     if (!(error instanceof ConvoyError)) console.error(`/${name} failed`, error);
-    const content = error instanceof ConvoyError ? error.message : "Une erreur est survenue, réessayez plus tard.";
+    const content = `⚠️ ${error instanceof ConvoyError ? error.message : "Une erreur est survenue, réessayez plus tard."}`;
     try {
       await replyPrivately(interaction, content, ERROR_LIFETIME_MS);
     } catch (replyError) {

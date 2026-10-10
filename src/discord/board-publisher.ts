@@ -1,5 +1,14 @@
-import { type Client, type GuildTextBasedChannel, type Message, MessageFlags } from "discord.js";
-import { BOARD_TITLE, nextArrival, renderBoard } from "../convoy/board.ts";
+import {
+  type Client,
+  ComponentType,
+  ContainerBuilder,
+  type GuildTextBasedChannel,
+  type Message,
+  MessageFlags,
+  SeparatorSpacingSize,
+  TextDisplayBuilder,
+} from "discord.js";
+import { BOARD_HEADING, type Board, nextArrival, renderBoard } from "../convoy/board.ts";
 import type { ConvoyStore } from "../convoy/store.ts";
 
 /**
@@ -7,6 +16,7 @@ import type { ConvoyStore } from "../convoy/store.ts";
  * After a restart it takes back its last board message instead of posting a new one.
  * It also refreshes itself when the next convoy on the way arrives, so arrived convoys leave the board.
  * The channel holds the board and nothing else: every other message is deleted (docs/adr/0002).
+ * The board uses Discord's Components V2: coloured boxes, headings, live relative times.
  */
 export class BoardPublisher {
   private readonly client: Client<true>;
@@ -64,9 +74,16 @@ export class BoardPublisher {
   }
 
   /** Posts a short notice under the board, deleted after `lifetimeMs`. Mentions do not notify. */
-  async notice(content: string, lifetimeMs: number): Promise<void> {
+  async notice(content: string, tone: "success" | "error", lifetimeMs: number): Promise<void> {
     const channel = await this.channel();
-    const message = await channel.send({ content, allowedMentions: { parse: [] } });
+    const box = new ContainerBuilder()
+      .setAccentColor(NOTICE_ACCENT[tone])
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
+    const message = await channel.send({
+      components: [box],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
+    });
     setTimeout(() => void message.delete().catch(() => undefined), lifetimeMs);
   }
 
@@ -81,20 +98,35 @@ export class BoardPublisher {
     const requests = await this.store.list();
     const now = new Date();
     this.scheduleArrival(nextArrival(requests, now), now);
-    const content = renderBoard(requests, now);
+    const payload = {
+      components: toComponents(renderBoard(requests, now)),
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
+    } as const;
     this.message ??= await this.findBoard();
     if (this.message) {
-      this.message = await this.message.edit({ content, allowedMentions: { parse: [] } });
+      this.message = await this.message.edit(payload);
       return;
     }
     const channel = await this.channel();
-    this.message = await channel.send({ content, allowedMentions: { parse: [] } });
+    this.message = await channel.send(payload);
   }
 
   /** The current board, or before the bot has found it, any board it posted. */
   private isBoard(message: Message): boolean {
     if (this.message) return message.id === this.message.id;
-    return message.author.id === this.client.user.id && message.content.startsWith(BOARD_TITLE);
+    return this.isBoardMessage(message);
+  }
+
+  /** A board the bot posted: its first component is the heading. Older text boards are not, and get deleted. */
+  private isBoardMessage(message: Message): boolean {
+    const [first] = message.components;
+    return (
+      message.author.id === this.client.user.id &&
+      message.flags.has(MessageFlags.IsComponentsV2) &&
+      first?.type === ComponentType.TextDisplay &&
+      first.content.startsWith(BOARD_HEADING)
+    );
   }
 
   private scheduleArrival(arrival: Date | null, now: Date): void {
@@ -108,10 +140,7 @@ export class BoardPublisher {
   private async findBoard(): Promise<Message | null> {
     const channel = await this.channel();
     const recent = await channel.messages.fetch({ limit: 50 });
-    return (
-      recent.find((message) => message.author.id === this.client.user.id && message.content.startsWith(BOARD_TITLE)) ??
-      null
-    );
+    return recent.find((message) => this.isBoardMessage(message)) ?? null;
   }
 
   private async channel(): Promise<GuildTextBasedChannel> {
@@ -121,4 +150,23 @@ export class BoardPublisher {
     }
     return channel;
   }
+}
+
+const NOTICE_ACCENT = { success: 0x3ba55c, error: 0xed4245 } as const;
+
+/** Lays the board out: header, one box per section with thin lines between its blocks, footer. */
+function toComponents(board: Board): (TextDisplayBuilder | ContainerBuilder)[] {
+  const boxes = board.sections.map((section) => {
+    const box = new ContainerBuilder().setAccentColor(section.accent);
+    section.blocks.forEach((block, i) => {
+      if (i > 0) box.addSeparatorComponents((line) => line.setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+      box.addTextDisplayComponents(new TextDisplayBuilder().setContent(block));
+    });
+    return box;
+  });
+  return [
+    new TextDisplayBuilder().setContent(board.header),
+    ...boxes,
+    new TextDisplayBuilder().setContent(board.footer),
+  ];
 }

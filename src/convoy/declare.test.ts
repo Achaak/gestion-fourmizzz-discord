@@ -38,7 +38,7 @@ describe("declareConvoys", () => {
     ]);
     expect(declarationSummary(lines.length, results)).toBe(
       [
-        "Merci ! 3 convois enregistrés.",
+        "🚚 Merci ! 3 convois enregistrés.",
         "- Demande n° 1 (Alice) : entièrement livrée.",
         "- Demande n° 2 (Bruno) : reste 70 000 matériaux.",
       ].join("\n"),

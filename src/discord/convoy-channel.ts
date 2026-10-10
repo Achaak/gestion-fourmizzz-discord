@@ -22,14 +22,17 @@ export async function onConvoyChannelMessage(message: Message, { store, board }:
     }
     await board.notice(
       `${message.author.toString()} ${declarationSummary(lines.length, results)}`,
+      "success",
       CONFIRMATION_LIFETIME_MS,
     );
   } catch (error) {
     if (!(error instanceof ConvoyError)) console.error("Convoy channel message failed", error);
-    const content = error instanceof ConvoyError ? error.message : "Une erreur est survenue, réessayez plus tard.";
-    await board.notice(`${message.author.toString()} ${content}`, ERROR_LIFETIME_MS).catch((noticeError: unknown) => {
-      console.error("Could not answer in the convoy channel", noticeError);
-    });
+    const content = `⚠️ ${error instanceof ConvoyError ? error.message : "Une erreur est survenue, réessayez plus tard."}`;
+    await board
+      .notice(`${message.author.toString()} ${content}`, "error", ERROR_LIFETIME_MS)
+      .catch((noticeError: unknown) => {
+        console.error("Could not answer in the convoy channel", noticeError);
+      });
   } finally {
     await board.sweep(message);
   }

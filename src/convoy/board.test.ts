@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { MESSAGE_LIMIT, nextArrival, renderBoard } from "./board.ts";
+import {
+  type Board,
+  MAX_COMPONENTS,
+  MAX_TEXT_LENGTH,
+  componentCount,
+  nextArrival,
+  renderBoard,
+  textLength,
+} from "./board.ts";
 import type { Member } from "./request.ts";
 import { MemoryConvoyStore } from "./store.ts";
 
@@ -39,26 +47,36 @@ async function sampleStore() {
   return store;
 }
 
+/** The board as plain text: boxes start with their colour, lines between blocks are "───". */
+function asText(board: Board): string {
+  const boxes = board.sections.map((section) => `[#${section.accent.toString(16)}]\n${section.blocks.join("\n───\n")}`);
+  return [board.header, ...boxes, board.footer].join("\n\n");
+}
+
 describe("renderBoard", () => {
   it("shows active, pending and done requests", async () => {
     const board = renderBoard(await (await sampleStore()).list(), NOW);
-    expect(board).toMatchInlineSnapshot(`
-      "**📦 Convois** · mis à jour <t:1791632160:f>
-      \`\`\`
-      ▶ EN COURS
-        #  Joueur        Demande                 Pour   Avancement
-        1  Alice         Entrepôt de matériaux…  12/10  ████████░░  82 %
-                         Matériaux  1 240 000 / 1 512 000 · reste 272 000
+    expect(asText(board)).toMatchInlineSnapshot(`
+      "# 📦 Convois de l'alliance
+      -# 1 en cours · 1 en attente · mis à jour <t:1791632160:R>
 
-      ⏳ EN ATTENTE DE VALIDATION
-        #  Joueur        Demande                 Pour   Total
-        2  Chloé         Champignonnière 15      —      2 100 000 mat.
+      [#3ba55c]
+      ### 🚚 En cours
+      ───
+      **n° 1 · Entrepôt de matériaux 12** · <@1>
+      🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ **82 %** · 📅 pour le 12/10
+      🪵 1 240 000 / 1 512 000 matériaux · reste **272 000**
 
-      ✅ TERMINÉES (7 derniers jours)
-        #  Joueur        Demande                 Le     Livreurs
-        3  Bruno         Couveuse 17             10/10  Chloé, Alice
-      \`\`\`
-      -# \`/demande\` pour demander un convoi · postez ici la ligne « Vous allez livrer … » du jeu pour déclarer vos envois"
+      [#f0b232]
+      ### ⏳ En attente de validation
+      **n° 2 · Champignonnière 15** · <@3> · 2 100 000 mat.
+      -# Un responsable des convois les valide avec \`/valider\`.
+
+      [#80848e]
+      ### ✅ Terminées ces 7 derniers jours
+      **n° 3 · Couveuse 17** · <@2> · le 10/10 · merci Chloé, Alice
+
+      -# 📝 \`/demande\` pour demander un convoi · 🚚 postez ici la ligne « Vous allez livrer … » du jeu pour déclarer vos envois"
     `);
   });
 
@@ -78,24 +96,25 @@ describe("renderBoard", () => {
       { amounts: { food: 0, materials: 10_000 }, arrivesAt: new Date("2026-10-10T10:00:00Z") },
     ]);
     const requests = await store.list();
-    expect(renderBoard(requests, NOW)).toContain(
+    const text = asText(renderBoard(requests, NOW));
+    expect(text).toContain(
       [
-        "                   En route   30 000 mat. · Chloé · 10/10 15:42",
-        "                              40 000 mat. · Chloé · 10/10 18:50",
+        "🚚 30 000 mat. de Chloé · arrive <t:1791639720:R> (<t:1791639720:t>)",
+        "🚚 40 000 mat. de Chloé · arrive <t:1791651000:R> (<t:1791651000:t>)",
       ].join("\n"),
     );
-    expect(renderBoard(requests, NOW)).not.toContain("10 000 mat. · Chloé");
+    expect(text).not.toContain("10 000 mat. de Chloé");
     expect(nextArrival(requests, NOW)).toEqual(new Date("2026-10-10T13:42:00Z"));
-    expect(renderBoard(requests, new Date("2026-10-10T17:00:00Z"))).not.toContain("En route");
+    expect(asText(renderBoard(requests, new Date("2026-10-10T17:00:00Z")))).not.toContain(" · arrive ");
   });
 
   it("invites to make a request when there is none", () => {
-    expect(renderBoard([], NOW)).toContain("Aucune demande en cours");
+    expect(asText(renderBoard([], NOW))).toContain("Aucune demande en cours");
   });
 
   it("drops done requests older than 7 days", async () => {
     const store = await sampleStore();
-    expect(renderBoard(await store.list(), new Date("2026-10-18T12:00:00Z"))).not.toContain("TERMINÉES");
+    expect(asText(renderBoard(await store.list(), new Date("2026-10-18T12:00:00Z")))).not.toContain("Terminées");
   });
 
   it("stays under Discord's limit by cutting the last sections first", async () => {
@@ -111,8 +130,9 @@ describe("renderBoard", () => {
       if (i < 8) await store.validate(request.id, bruno);
     }
     const board = renderBoard(await store.list(), NOW);
-    expect(board.length).toBeLessThanOrEqual(MESSAGE_LIMIT);
-    expect(board).toContain("Couveuse 7");
-    expect(board).toMatch(/… et \d+ de plus/);
+    expect(componentCount(board)).toBeLessThanOrEqual(MAX_COMPONENTS);
+    expect(textLength(board)).toBeLessThanOrEqual(MAX_TEXT_LENGTH);
+    expect(asText(board)).toContain("Couveuse 7**");
+    expect(asText(board)).toMatch(/… et \d+ de plus/);
   });
 });

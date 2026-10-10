@@ -12,7 +12,7 @@ export const validateCommand: Command = {
 
   async execute(interaction, { store, board }) {
     const request = await store.validate(interaction.options.getInteger("numero", true), memberOf(interaction));
-    await replyPrivately(interaction, `Demande n° ${request.id} validée : elle est ouverte aux livraisons.`);
+    await replyPrivately(interaction, `✅ Demande n° ${request.id} validée : elle est ouverte aux livraisons.`);
     await board.refresh();
   },
 };

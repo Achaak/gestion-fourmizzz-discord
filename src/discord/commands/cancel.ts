@@ -15,7 +15,7 @@ export const cancelCommand: Command = {
       memberOf(interaction),
       isManager(interaction),
     );
-    await replyPrivately(interaction, `Demande n° ${request.id} annulée.`);
+    await replyPrivately(interaction, `🗑️ Demande n° ${request.id} annulée.`);
     await board.refresh();
   },
 };

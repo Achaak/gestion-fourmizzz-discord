@@ -25,10 +25,10 @@ export async function declareConvoys(
   return results;
 }
 
-/** "Merci ! 2 convois enregistrés." followed by what remains on each request. */
+/** "🚚 Merci ! 2 convois enregistrés." followed by what remains on each request. */
 export function declarationSummary(convoyCount: number, requests: ConvoyRequest[]): string {
   const convoys = convoyCount > 1 ? `${convoyCount} convois enregistrés` : "Convoi enregistré";
-  return [`Merci ! ${convoys}.`, ...requests.map(requestSummary)].join("\n");
+  return [`🚚 Merci ! ${convoys}.`, ...requests.map(requestSummary)].join("\n");
 }
 
 function requestSummary(request: ConvoyRequest): string {

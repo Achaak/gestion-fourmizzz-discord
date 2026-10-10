@@ -42,7 +42,7 @@ export const requestCommand: Command = {
     });
     await replyPrivately(
       interaction,
-      `Demande n° ${request.id} enregistrée (${request.building} ${request.level}). Elle attend la validation d'un responsable.`,
+      `📝 Demande n° ${request.id} enregistrée (${request.building} ${request.level}). Elle attend la validation d'un responsable.`,
     );
     await board.refresh();
   },

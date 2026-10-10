@@ -16,5 +16,7 @@ L'alliance veut suivre ses demandes de convoi dans Discord (`docs/projet/besoin.
 
 - Les champs sont typés par Discord (niveau entier, options nommées) : pas de modèle mal rempli à interpréter, pas de droit « Gérer les messages » nécessaire au bot pour supprimer ceux des joueurs.
 - Le bot n'a pas besoin de lire le contenu des messages pour les commandes. (Depuis les ADR 0002 et 0003, il lit le salon des convois pour y déclarer les lignes postées et le vider.)
-- Un message Discord fait 2 000 caractères au plus : le tableau coupe d'abord les terminées, puis les en attente (« … et N de plus »). Au-delà d'une vingtaine de demandes ouvertes, il faudra une commande de consultation ou une pagination.
+- Le tableau est mis en page avec les **Components V2** de Discord : un encadré coloré par section (vert en cours, jaune en attente, gris terminées), des titres, une barre de progression en carrés de couleur. Un tel message compte au plus 40 composants et 4 000 caractères : le tableau coupe d'abord les terminées, puis les en attente, puis les en cours (« … et N de plus »). Au-delà d'une dizaine de demandes en cours, il faudra une commande de consultation ou une pagination.
+- Les heures d'arrivée et de mise à jour sont des horodatages Discord (« dans 3 heures », « 23:50 ») : Discord les affiche à l'heure de chaque lecteur et les tient à jour. Les dates de demande restent au format JJ/MM.
+- Le demandeur est cité par une mention : Discord affiche son nom actuel sur le serveur. Le tableau ne notifie jamais personne.
 - Le salon doit rester réservé au tableau : voir l'ADR 0002, qui remplace l'idée de retirer « Envoyer des messages » aux membres.
