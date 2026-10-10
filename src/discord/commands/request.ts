@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { parseDueDate } from "../../convoy/due-date.ts";
 import { parseQuantity } from "../../convoy/quantity.ts";
+import { ConvoyError } from "../../convoy/request.ts";
 import { type Command, memberOf, replyPrivately } from "../command.ts";
 
 export const requestCommand: Command = {
@@ -25,20 +26,12 @@ export const requestCommand: Command = {
     const food = readQuantity(interaction.options.getString("nourriture"));
     const materials = readQuantity(interaction.options.getString("materiaux"));
     if (food === null || materials === null) {
-      await replyPrivately(
-        interaction,
-        "Quantité illisible : écrivez par exemple « 1 240 000 », « 272k » ou « 1,5m ».",
-      );
-      return;
+      throw new ConvoyError("Quantité illisible : écrivez par exemple « 1 240 000 », « 272k » ou « 1,5m ».");
     }
     const dueText = interaction.options.getString("pour");
     const dueDate = dueText === null ? null : parseDueDate(dueText, new Date());
     if (dueText !== null && dueDate === null) {
-      await replyPrivately(
-        interaction,
-        `Date illisible : « ${dueText} ». Écrivez-la au format JJ/MM, par exemple 12/10.`,
-      );
-      return;
+      throw new ConvoyError(`Date illisible : « ${dueText} ». Écrivez-la au format JJ/MM, par exemple 12/10.`);
     }
     const request = await store.create({
       requester: memberOf(interaction),

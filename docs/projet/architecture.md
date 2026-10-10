@@ -29,7 +29,7 @@ Authentification du bot : un secret partagé dans un en-tête (`Authorization: B
 | -------------------------------------- | ---------------------------------------------------------------- | ----------------------------------- |
 | `POST /convoy-requests`                | `requester`, `building`, `level`, `food`, `materials`, `dueDate` | la demande créée                    |
 | `POST /convoy-requests/:id/validate`   | `by`                                                             | la demande                          |
-| `POST /convoy-requests/:id/deliveries` | `by`, `food`, `materials`                                        | la demande, avec le reste           |
+| `POST /convoy-requests/:id/deliveries` | `by`, `deliveries` : liste de `{ food, materials, arrivesAt }`   | la demande, avec le reste           |
 | `POST /convoy-requests/:id/cancel`     | `by`                                                             | la demande                          |
 | `GET /convoy-requests?status=…`        |                                                                  | les demandes, avec leurs livraisons |
 | `GET /members`                         |                                                                  | le lien Discord ↔ joueur            |

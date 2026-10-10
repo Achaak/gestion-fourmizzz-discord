@@ -30,18 +30,20 @@ describe("MemoryConvoyStore", () => {
   it("refuses deliveries before validation", async () => {
     const store = newStore();
     const { id } = await ask(store);
-    await expect(store.deliver(id, chloe, { food: 0, materials: 100 })).rejects.toThrow("pas encore validée");
+    await expect(store.deliver(id, chloe, [{ amounts: { food: 0, materials: 100 }, arrivesAt: null }])).rejects.toThrow(
+      "pas encore validée",
+    );
   });
 
   it("tracks deliveries until the request is done", async () => {
     const store = newStore();
     const { id } = await ask(store);
     await store.validate(id, chief);
-    const partial = await store.deliver(id, chloe, { food: 0, materials: 600 });
+    const partial = await store.deliver(id, chloe, [{ amounts: { food: 0, materials: 600 }, arrivesAt: null }]);
     expect(partial.status).toBe("active");
     expect(remaining(partial)).toEqual({ food: 0, materials: 400 });
     expect(progress(partial)).toBe(0.6);
-    const done = await store.deliver(id, chief, { food: 0, materials: 400 });
+    const done = await store.deliver(id, chief, [{ amounts: { food: 0, materials: 400 }, arrivesAt: null }]);
     expect(done.status).toBe("done");
     expect(done.closedAt).not.toBeNull();
   });
@@ -50,7 +52,7 @@ describe("MemoryConvoyStore", () => {
     const store = newStore();
     const { id } = await ask(store, { food: 1_000, materials: 1_000 });
     await store.validate(id, chief);
-    const request = await store.deliver(id, chloe, { food: 2_000, materials: 0 });
+    const request = await store.deliver(id, chloe, [{ amounts: { food: 2_000, materials: 0 }, arrivesAt: null }]);
     expect(request.status).toBe("active");
     expect(progress(request)).toBe(0.5);
   });

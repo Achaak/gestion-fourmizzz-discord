@@ -23,6 +23,9 @@ d = √((x₁ − x₂)² + (y₁ − y₂)²)
 ## Ce qu'on voit après l'envoi
 
 - L'expéditeur voit ses convois en cours sur `commerce.php` : « Vous allez livrer 1 [nourriture] et 0 [matériaux] à X dans 1H 22m 22s ».
+- Copiée depuis la page, la ligne devient : « Vous allez livrer 0 nourritures et 30 000 materiaux à X dans 6H 21m 17s - Retour le 10 oct. à 02h42 - Annuler ». Les mots restent au pluriel et sans accent quelle que soit la quantité. Selon l'outil du joueur, une heure d'arrivée s'ajoute après la durée (« · arrivée aujourd'hui 6 h 50 ») et « Retour le … » peut manquer. La durée peut compter des jours (« 1J 10H 58m 40s »). Relevé sur s5 le 2026-10-10 dans les messages des joueurs.
+- **« Retour le 10 oct. à 02h42 » est l'heure d'arrivée chez le destinataire**, à l'heure de Paris, malgré le mot : dans tous les messages relevés, heure de copie + durée = cette heure (20:21 + 6H 21m = 02:42), et elle est égale à « arrivée aujourd'hui 17 h 49 » quand les deux figurent. L'année n'est pas écrite.
+- C'est cette ligne que les joueurs collent dans Discord après chaque convoi, parfois plusieurs d'un coup. Postée dans le salon des convois, ou collée dans le formulaire de `/livrer` : le bot les lit (`src/convoy/convoy-line.ts`), retrouve la demande de chaque destinataire et note l'heure d'arrivée : « Retour le » si elle est là, sinon « arrivée aujourd'hui/demain » (compté depuis le jour du message), sinon l'heure du message + la durée. Les joueurs peuvent aussi poster les lignes directement dans le salon des convois (ADR 0003).
 - Un message « Convoi livré à X : … » arrive **au départ** dans sa messagerie.
 - Le destinataire voit les ressources arriver dans son stock. **Aucun export public** ne trace les convois : l'alliance ne peut les suivre que par déclaration (d'où `/livrer`).
 

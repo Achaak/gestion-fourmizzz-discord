@@ -1,15 +1,21 @@
-import { formatDueDate, parisToday } from "./due-date.ts";
-import { type ConvoyRequest, delivered, progress, remaining } from "./request.ts";
+import { formatDueDate, formatParisTime, parisToday } from "./due-date.ts";
+import { type Amounts, type ConvoyRequest, type Delivery, delivered, progress, remaining } from "./request.ts";
 import { formatNumber } from "./quantity.ts";
 
 /** Discord refuses messages over 2 000 characters. */
 export const MESSAGE_LIMIT = 2000;
 /** Starts every board message: the bot finds its board back by it after a restart. */
 export const BOARD_TITLE = "**📦 Convois**";
+/** The channel holds nothing but the board, so it reminds how to use it (small text). */
+const HELP =
+  "-# `/demande` pour demander un convoi · postez ici la ligne « Vous allez livrer … » du jeu pour déclarer vos envois";
 const DONE_WINDOW_MS = 7 * 86_400_000;
 const NAME_WIDTH = 12;
 const DEMAND_WIDTH = 22;
 const BAR_WIDTH = 10;
+/** Convoys on the way shown per request, soonest first. */
+const MAX_ON_THE_WAY = 3;
+const INDENT = " ".repeat(3 + 2 + NAME_WIDTH + 2);
 
 interface Section {
   title: string;
@@ -37,7 +43,7 @@ export function renderBoard(requests: ConvoyRequest[], now: Date): string {
     {
       title: "▶ EN COURS",
       header: row("#", "Joueur", "Demande", "Pour", "Avancement"),
-      blocks: active.map(activeBlock),
+      blocks: active.map((request) => activeBlock(request, now)),
     },
     {
       title: "⏳ EN ATTENTE DE VALIDATION",
@@ -47,7 +53,7 @@ export function renderBoard(requests: ConvoyRequest[], now: Date): string {
     {
       title: "✅ TERMINÉES (7 derniers jours)",
       header: row("#", "Joueur", "Demande", "Le", "Livreurs"),
-      blocks: done.map(doneBlock),
+      blocks: done.map((request) => doneBlock(request, now)),
     },
   ];
 
@@ -72,10 +78,16 @@ function compose(title: string, sections: Section[], shown: number[]): string {
     if (hidden > 0) lines.push(`  … et ${hidden} de plus`);
     return [lines.join("\n")];
   });
-  return `${title}\n\`\`\`\n${parts.join("\n\n")}\n\`\`\``;
+  return `${title}\n\`\`\`\n${parts.join("\n\n")}\n\`\`\`\n${HELP}`;
 }
 
-function activeBlock(request: ConvoyRequest): string[] {
+/** When the next convoy on the way arrives, so the board can drop it from the list then. */
+export function nextArrival(requests: ConvoyRequest[], now: Date): Date | null {
+  const arrivals = requests.flatMap((request) => onTheWay(request, now).map((delivery) => delivery.arrivesAt));
+  return arrivals.reduce<Date | null>((soonest, date) => (soonest && soonest <= date ? soonest : date), null);
+}
+
+function activeBlock(request: ConvoyRequest, now: Date): string[] {
   const share = progress(request);
   const filled = Math.round(share * BAR_WIDTH);
   const bar = `${"█".repeat(filled)}${"░".repeat(BAR_WIDTH - filled)}  ${Math.floor(share * 100)} %`;
@@ -88,23 +100,17 @@ function activeBlock(request: ConvoyRequest): string[] {
   if (request.amounts.materials > 0) {
     details.push(detail("Matériaux", sent.materials, request.amounts.materials, left.materials));
   }
-  return [requestRow(request, dueDate(request), bar), ...details];
+  return [requestRow(request, dueDate(request), bar), ...details, ...onTheWayLines(request, now)];
 }
 
 function pendingBlock(request: ConvoyRequest): string[] {
-  const total = [
-    request.amounts.food > 0 ? `${formatNumber(request.amounts.food)} nour.` : "",
-    request.amounts.materials > 0 ? `${formatNumber(request.amounts.materials)} mat.` : "",
-  ]
-    .filter(Boolean)
-    .join(" + ");
-  return [requestRow(request, dueDate(request), total)];
+  return [requestRow(request, dueDate(request), shortAmounts(request.amounts))];
 }
 
-function doneBlock(request: ConvoyRequest): string[] {
+function doneBlock(request: ConvoyRequest, now: Date): string[] {
   const deliverers = [...new Set(request.deliveries.map((d) => d.by.name))].join(", ");
   const closed = request.closedAt ? formatDueDate(parisToday(request.closedAt)) : "—";
-  return [requestRow(request, closed, deliverers)];
+  return [requestRow(request, closed, deliverers), ...onTheWayLines(request, now)];
 }
 
 function requestRow(request: ConvoyRequest, date: string, last: string): string {
@@ -115,9 +121,37 @@ function row(id: string, name: string, demand: string, date: string, last: strin
   return [id.padStart(3), fit(name, NAME_WIDTH), fit(demand, DEMAND_WIDTH), date.padEnd(5), last].join("  ");
 }
 
+/** Lets the requester know when convoys reach them: "En route   30 000 mat. · Chloé · 11/10 02:42". */
+function onTheWayLines(request: ConvoyRequest, now: Date): string[] {
+  const coming = onTheWay(request, now);
+  const lines = coming.slice(0, MAX_ON_THE_WAY).map((delivery, i) => {
+    const label = i === 0 ? "En route" : "";
+    return `${INDENT}${label.padEnd(11)}${shortAmounts(delivery.amounts)} · ${delivery.by.name} · ${formatParisTime(delivery.arrivesAt)}`;
+  });
+  const hidden = coming.length - MAX_ON_THE_WAY;
+  if (hidden > 0) lines.push(`${INDENT}${"".padEnd(11)}… et ${hidden} autre${hidden > 1 ? "s" : ""}`);
+  return lines;
+}
+
+function onTheWay(request: ConvoyRequest, now: Date): (Delivery & { arrivesAt: Date })[] {
+  return request.deliveries
+    .filter(
+      (delivery): delivery is Delivery & { arrivesAt: Date } => delivery.arrivesAt !== null && delivery.arrivesAt > now,
+    )
+    .sort((a, b) => a.arrivesAt.getTime() - b.arrivesAt.getTime());
+}
+
+function shortAmounts(amounts: Amounts): string {
+  return [
+    amounts.food > 0 ? `${formatNumber(amounts.food)} nour.` : "",
+    amounts.materials > 0 ? `${formatNumber(amounts.materials)} mat.` : "",
+  ]
+    .filter(Boolean)
+    .join(" + ");
+}
+
 function detail(label: string, sent: number, wanted: number, left: number): string {
-  const indent = " ".repeat(3 + 2 + NAME_WIDTH + 2);
-  return `${indent}${label.padEnd(11)}${formatNumber(sent)} / ${formatNumber(wanted)} · reste ${formatNumber(left)}`;
+  return `${INDENT}${label.padEnd(11)}${formatNumber(sent)} / ${formatNumber(wanted)} · reste ${formatNumber(left)}`;
 }
 
 function fit(text: string, width: number): string {

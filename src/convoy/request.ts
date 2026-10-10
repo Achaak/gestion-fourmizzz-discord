@@ -12,9 +12,16 @@ export interface Amounts {
 /** pending: waiting for a manager · active: open for deliveries · done: fully delivered · cancelled. */
 export type RequestStatus = "pending" | "active" | "done" | "cancelled";
 
-export interface Delivery {
-  by: Member;
+/** A convoy sent for a request, as declared by its sender. */
+export interface NewDelivery {
   amounts: Amounts;
+  /** When the convoy reaches the requester, read from the game's line; null when unknown. */
+  arrivesAt: Date | null;
+}
+
+export interface Delivery extends NewDelivery {
+  by: Member;
+  /** When it was declared. */
   at: Date;
 }
 
@@ -99,16 +106,27 @@ export function validateRequest(request: ConvoyRequest, by: Member, now: Date): 
   return { ...request, status: "active", validatedBy: by, validatedAt: now };
 }
 
-/** Records a delivery; the request becomes done once nothing remains. */
-export function deliverRequest(request: ConvoyRequest, by: Member, amounts: Amounts, now: Date): ConvoyRequest {
+/**
+ * Records deliveries sent together by one member; the request becomes done once nothing remains.
+ * Several convoys pasted at once all count, even when the first ones already complete the request.
+ */
+export function deliverRequest(
+  request: ConvoyRequest,
+  by: Member,
+  deliveries: NewDelivery[],
+  now: Date,
+): ConvoyRequest {
   if (request.status === "pending") {
     throw new ConvoyError(`La demande n° ${request.id} n'est pas encore validée.`);
   }
   if (request.status !== "active") throw new ConvoyError(`La demande n° ${request.id} est close.`);
-  if (amounts.food <= 0 && amounts.materials <= 0) {
+  if (deliveries.length === 0 || deliveries.some(({ amounts }) => amounts.food <= 0 && amounts.materials <= 0)) {
     throw new ConvoyError("Indiquez la nourriture ou les matériaux livrés.");
   }
-  const next = { ...request, deliveries: [...request.deliveries, { by, amounts, at: now }] };
+  const next = {
+    ...request,
+    deliveries: [...request.deliveries, ...deliveries.map((delivery) => ({ ...delivery, by, at: now }))],
+  };
   return progress(next) >= 1 ? { ...next, status: "done", closedAt: now } : next;
 }
 

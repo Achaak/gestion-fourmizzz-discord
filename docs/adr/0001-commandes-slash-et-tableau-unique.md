@@ -15,6 +15,6 @@ L'alliance veut suivre ses demandes de convoi dans Discord (`docs/projet/besoin.
 ## Conséquences
 
 - Les champs sont typés par Discord (niveau entier, options nommées) : pas de modèle mal rempli à interpréter, pas de droit « Gérer les messages » nécessaire au bot pour supprimer ceux des joueurs.
-- Le bot n'a besoin que de l'intent `Guilds`, pas de la lecture du contenu des messages.
+- Le bot n'a pas besoin de lire le contenu des messages pour les commandes. (Depuis les ADR 0002 et 0003, il lit le salon des convois pour y déclarer les lignes postées et le vider.)
 - Un message Discord fait 2 000 caractères au plus : le tableau coupe d'abord les terminées, puis les en attente (« … et N de plus »). Au-delà d'une vingtaine de demandes ouvertes, il faudra une commande de consultation ou une pagination.
-- Le salon doit rester réservé au bot : retirer « Envoyer des messages » aux membres, garder « Utiliser les commandes de l'application » (**à vérifier** sur le serveur).
+- Le salon doit rester réservé au tableau : voir l'ADR 0002, qui remplace l'idée de retirer « Envoyer des messages » aux membres.

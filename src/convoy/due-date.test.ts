@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDueDate, parisToday, parseDueDate } from "./due-date.ts";
+import { formatDueDate, formatParisTime, fromParisTime, parisToday, parseDueDate } from "./due-date.ts";
 
 const OCT_10 = new Date("2026-10-10T12:00:00Z");
 
@@ -36,5 +36,21 @@ describe("parisToday", () => {
 describe("formatDueDate", () => {
   it("shows JJ/MM", () => {
     expect(formatDueDate("2026-10-12")).toBe("12/10");
+  });
+});
+
+describe("fromParisTime", () => {
+  it("reads a summer time in Paris (UTC+2)", () => {
+    expect(fromParisTime(2026, 10, 10, 2, 42).toISOString()).toBe("2026-10-10T00:42:00.000Z");
+  });
+
+  it("reads a winter time in Paris (UTC+1)", () => {
+    expect(fromParisTime(2026, 12, 1, 0, 30).toISOString()).toBe("2026-11-30T23:30:00.000Z");
+  });
+});
+
+describe("formatParisTime", () => {
+  it("shows day, month and time in Paris", () => {
+    expect(formatParisTime(new Date("2026-10-10T00:42:00Z"))).toBe("10/10 02:42");
   });
 });

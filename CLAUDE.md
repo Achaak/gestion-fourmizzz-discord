@@ -25,9 +25,9 @@ Configuration : copier `.env.example` en `.env`. Ne jamais committer `.env` ni u
 ## Architecture
 
 - Node 24 exécute directement le TypeScript (suppression des types) : pas d'étape de build. D'où `erasableSyntaxOnly` (pas d'`enum`, pas de propriétés de paramètre de constructeur) et des imports en `.ts`.
-- `src/convoy/` : logique pure des convois, sans Discord, testée avec vitest : règles d'une demande (`request.ts`), stockage (`store.ts`, interface `ConvoyStore`), tableau (`board.ts`), lecture des quantités (`quantity.ts`, « 272k », « 1,5m » comme le jeu) et des dates (`due-date.ts`).
-- `src/discord/` : commandes slash (`commands/`, une par fichier, inscrites dans `commands/index.ts`) et publication du tableau (`board-publisher.ts`, un seul message modifié à chaque changement).
-- Une règle enfreinte par un joueur lève `ConvoyError` : son message lui est montré tel quel, en réponse visible de lui seul. Toute autre erreur est loguée et le joueur voit un message générique.
+- `src/convoy/` : logique pure des convois, sans Discord, testée avec vitest : règles d'une demande (`request.ts`), stockage (`store.ts`, interface `ConvoyStore`), tableau (`board.ts`), lecture des quantités (`quantity.ts`, « 272k », « 1,5m » comme le jeu), des dates (`due-date.ts`), des lignes de convoi copiées du jeu (`convoy-line.ts`) et leur déclaration (`declare.ts`).
+- `src/discord/` : commandes slash (`commands/`, une par fichier, inscrites dans `commands/index.ts`) et publication du tableau (`board-publisher.ts`, un seul message modifié à chaque changement ; tout autre message du salon est supprimé, ADR 0002) ; lecture des lignes de convoi postées dans le salon (`convoy-channel.ts`, ADR 0003).
+- Une règle enfreinte par un joueur lève `ConvoyError` : son message lui est montré tel quel, en réponse visible de lui seul (ou, pour une ligne postée dans le salon, en court message qui s'efface). Toute autre erreur est loguée et le joueur voit un message générique.
 - Les responsables des convois sont les membres qui ont la permission « Gérer les messages » ; les admins du serveur peuvent restreindre chaque commande dans Paramètres du serveur → Intégrations.
 - `discord.js` v14, `zod` pour valider l'environnement et, plus tard, les réponses de l'API. Préférer une brique éprouvée à du code écrit à la main.
 

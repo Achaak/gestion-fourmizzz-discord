@@ -1,8 +1,8 @@
 import {
-  type Amounts,
   type ConvoyRequest,
   ConvoyError,
   type Member,
+  type NewDelivery,
   type NewRequest,
   cancelRequest,
   createRequest,
@@ -17,7 +17,7 @@ import {
 export interface ConvoyStore {
   create(input: NewRequest): Promise<ConvoyRequest>;
   validate(id: number, by: Member): Promise<ConvoyRequest>;
-  deliver(id: number, by: Member, amounts: Amounts): Promise<ConvoyRequest>;
+  deliver(id: number, by: Member, deliveries: NewDelivery[]): Promise<ConvoyRequest>;
   cancel(id: number, by: Member, asManager: boolean): Promise<ConvoyRequest>;
   list(): Promise<ConvoyRequest[]>;
 }
@@ -44,8 +44,8 @@ export class MemoryConvoyStore implements ConvoyStore {
     return this.update(id, (request) => validateRequest(request, by, this.clock()));
   }
 
-  deliver(id: number, by: Member, amounts: Amounts): Promise<ConvoyRequest> {
-    return this.update(id, (request) => deliverRequest(request, by, amounts, this.clock()));
+  deliver(id: number, by: Member, deliveries: NewDelivery[]): Promise<ConvoyRequest> {
+    return this.update(id, (request) => deliverRequest(request, by, deliveries, this.clock()));
   }
 
   cancel(id: number, by: Member, asManager: boolean): Promise<ConvoyRequest> {

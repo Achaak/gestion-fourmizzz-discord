@@ -45,3 +45,46 @@ function toIso(year: number, month: number, day: number): string {
 function daysBetween(earlier: string, later: string): number {
   return (Date.parse(later) - Date.parse(earlier)) / 86_400_000;
 }
+
+const PARIS_CLOCK = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** The instant a Paris clock shows as this date and time, summer time included. */
+export function fromParisTime(year: number, month: number, day: number, hour: number, minute: number): Date {
+  const asUtc = Date.UTC(year, month - 1, day, hour, minute);
+  const offset = parisClockAsUtc(new Date(asUtc)) - asUtc;
+  return new Date(asUtc - offset);
+}
+
+/** "10/10 02:42", in Paris time. */
+export function formatParisTime(date: Date): string {
+  const { day, month, hour, minute } = parisClock(date);
+  return `${pad(day)}/${pad(month)} ${pad(hour)}:${pad(minute)}`;
+}
+
+function parisClockAsUtc(date: Date): number {
+  const { year, month, day, hour, minute } = parisClock(date);
+  return Date.UTC(year, month - 1, day, hour, minute);
+}
+
+function parisClock(date: Date): { year: number; month: number; day: number; hour: number; minute: number } {
+  const parts = Object.fromEntries(PARIS_CLOCK.formatToParts(date).map((part) => [part.type, Number(part.value)]));
+  return {
+    year: parts.year ?? 0,
+    month: parts.month ?? 0,
+    day: parts.day ?? 0,
+    hour: parts.hour ?? 0,
+    minute: parts.minute ?? 0,
+  };
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
