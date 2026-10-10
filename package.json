@@ -1,0 +1,52 @@
+{
+  "name": "gestion-fourmizzz-discord",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bot Discord de gestion d'alliance Fourmizzz : demandes et suivi des convois.",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.ts",
+    "dev": "node --env-file-if-exists=.env --watch src/index.ts",
+    "deploy-commands": "node --env-file-if-exists=.env src/deploy-commands.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "26.6.4",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "3.9.9",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  },
+  "lint-staged": {
+    "*.{ts,js,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": "prettier --write"
+  },
+  "license": "MIT",
+  "author": "Axel Lavoie",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Achaak/gestion-fourmizzz-discord"
+  },
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=24"
+  }
+}
