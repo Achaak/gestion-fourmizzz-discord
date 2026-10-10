@@ -1,3 +1,5 @@
+import { formatDueDate, parisToday } from "./due-date.ts";
+
 /** A Discord member of the alliance. `name` is their server display name (normally their game pseudo). */
 export interface Member {
   discordId: string;
@@ -89,6 +91,9 @@ export function createRequest(id: number, input: NewRequest, now: Date): ConvoyR
   if (input.amounts.food < 0 || input.amounts.materials < 0) {
     throw new ConvoyError("Une quantité ne peut pas être négative.");
   }
+  if (input.dueDate !== null && input.dueDate < parisToday(now)) {
+    throw new ConvoyError(`La date souhaitée (${formatDueDate(input.dueDate)}) est déjà passée.`);
+  }
   return {
     id,
     ...input,
@@ -109,6 +114,8 @@ export function validateRequest(request: ConvoyRequest, by: Member, now: Date): 
 /**
  * Records deliveries sent together by one member; the request becomes done once nothing remains.
  * Several convoys pasted at once all count, even when the first ones already complete the request.
+ * A done request still takes convoys, as surplus: they were sent while others completed it, and the
+ * alliance keeps every convoy for the consumption follow-up (docs/projet/besoin.md §2).
  */
 export function deliverRequest(
   request: ConvoyRequest,
@@ -119,7 +126,7 @@ export function deliverRequest(
   if (request.status === "pending") {
     throw new ConvoyError(`La demande n° ${request.id} n'est pas encore validée.`);
   }
-  if (request.status !== "active") throw new ConvoyError(`La demande n° ${request.id} est close.`);
+  if (request.status === "cancelled") throw new ConvoyError(`La demande n° ${request.id} est annulée.`);
   if (deliveries.length === 0 || deliveries.some(({ amounts }) => amounts.food <= 0 && amounts.materials <= 0)) {
     throw new ConvoyError("Indiquez la nourriture ou les matériaux livrés.");
   }
@@ -127,7 +134,27 @@ export function deliverRequest(
     ...request,
     deliveries: [...request.deliveries, ...deliveries.map((delivery) => ({ ...delivery, by, at: now }))],
   };
-  return progress(next) >= 1 ? { ...next, status: "done", closedAt: now } : next;
+  return request.status === "active" && progress(next) >= 1 ? { ...next, status: "done", closedAt: now } : next;
+}
+
+/** Arrivals read from the same line posted twice differ by the seconds between the two posts. */
+const SAME_ARRIVAL_MS = 2 * 60_000;
+
+/**
+ * Whether `by` already declared this convoy on the request: same sender, same amounts, same arrival
+ * within two minutes. A convoy without a known arrival cannot be told from another one.
+ */
+export function alreadyDeclared(request: ConvoyRequest, by: Member, convoy: NewDelivery): boolean {
+  const { arrivesAt } = convoy;
+  if (arrivesAt === null) return false;
+  return request.deliveries.some(
+    (delivery) =>
+      delivery.by.discordId === by.discordId &&
+      delivery.amounts.food === convoy.amounts.food &&
+      delivery.amounts.materials === convoy.amounts.materials &&
+      delivery.arrivesAt !== null &&
+      Math.abs(delivery.arrivesAt.getTime() - arrivesAt.getTime()) <= SAME_ARRIVAL_MS,
+  );
 }
 
 /** The requester can cancel their own request; a manager can cancel any open one. */

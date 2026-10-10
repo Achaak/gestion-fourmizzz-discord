@@ -73,22 +73,41 @@ function returnTime(tail: string, now: Date): Date | null {
   );
 }
 
+/** A convoy declared this long after its request was completed was most likely sent before. */
+const RECENTLY_DONE_MS = 86_400_000;
+
 /**
- * The active request a convoy goes to, found by its recipient. A member's Discord name is normally
- * their game pseudo, sometimes with a tag such as "[FARM]" that is ignored.
+ * The request a convoy goes to, found by its recipient: their active request, or failing that the one
+ * completed in the last day (the convoy was sent while others completed it). A member's Discord name is
+ * normally their game pseudo, sometimes with a tag such as "[FARM]" that is ignored.
  */
-export function requestForRecipient(requests: ConvoyRequest[], recipient: string): ConvoyRequest {
-  const pseudo = normalizeName(recipient);
-  const candidates = requests.filter(
-    (request) => request.status === "active" && normalizeName(request.requester.name) === pseudo,
-  );
-  const [only] = candidates;
-  if (only && candidates.length === 1) return only;
-  if (candidates.length === 0) {
-    throw new ConvoyError(`Aucune demande en cours pour ${recipient}. Précisez le numéro de la demande.`);
+export function requestForRecipient(requests: ConvoyRequest[], recipient: string, now: Date): ConvoyRequest {
+  const own = requests.filter((request) => sameName(request.requester.name, recipient));
+  const active = own.filter((request) => request.status === "active");
+  const [only] = active;
+  if (only && active.length === 1) return only;
+  if (active.length > 1) {
+    const numbers = active.map((request) => `n° ${request.id}`).join(", ");
+    throw new ConvoyError(`${recipient} a plusieurs demandes en cours (${numbers}). Précisez le numéro de la demande.`);
   }
-  const numbers = candidates.map((request) => `n° ${request.id}`).join(", ");
-  throw new ConvoyError(`${recipient} a plusieurs demandes en cours (${numbers}). Précisez le numéro de la demande.`);
+  const recentlyDone = own
+    .filter(
+      (request) =>
+        request.status === "done" && request.closedAt && now.getTime() - request.closedAt.getTime() <= RECENTLY_DONE_MS,
+    )
+    .sort((a, b) => (b.closedAt?.getTime() ?? 0) - (a.closedAt?.getTime() ?? 0));
+  if (recentlyDone[0]) return recentlyDone[0];
+  const pending = own.find((request) => request.status === "pending");
+  if (pending) {
+    throw new ConvoyError(
+      `La demande de ${recipient} (n° ${pending.id}) n'est pas encore validée : un responsable des convois doit la valider avec \`/valider\`.`,
+    );
+  }
+  throw new ConvoyError(`Aucune demande en cours pour ${recipient}. Précisez le numéro de la demande.`);
+}
+
+export function sameName(a: string, b: string): boolean {
+  return normalizeName(a) === normalizeName(b);
 }
 
 function normalizeName(name: string): string {

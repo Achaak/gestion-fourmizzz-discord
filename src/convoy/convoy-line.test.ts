@@ -85,23 +85,40 @@ describe("requestForRecipient", () => {
   }
 
   it("picks the only active request of the recipient, ignoring tags in their Discord name", () => {
-    expect(requestForRecipient([active(1, bruno), active(2, alice)], "alice").id).toBe(2);
+    expect(requestForRecipient([active(1, bruno), active(2, alice)], "alice", NOW).id).toBe(2);
   });
 
-  it("ignores requests that are not active", () => {
+  it("ignores pending requests when an active one exists", () => {
     const pending = createRequest(
       3,
       { requester: alice, building: "Couveuse", level: 11, amounts: { food: 0, materials: 100 }, dueDate: null },
       NOW,
     );
-    expect(requestForRecipient([pending, active(2, alice)], "Alice").id).toBe(2);
+    expect(requestForRecipient([pending, active(2, alice)], "Alice", NOW).id).toBe(2);
   });
 
   it("asks for the number when the recipient has no active request", () => {
-    expect(() => requestForRecipient([active(1, bruno)], "Alice")).toThrow("Aucune demande en cours pour Alice");
+    expect(() => requestForRecipient([active(1, bruno)], "Alice", NOW)).toThrow("Aucune demande en cours pour Alice");
+  });
+
+  it("says when the recipient's request still waits for validation", () => {
+    const pending = createRequest(
+      3,
+      { requester: alice, building: "Couveuse", level: 11, amounts: { food: 0, materials: 100 }, dueDate: null },
+      NOW,
+    );
+    expect(() => requestForRecipient([pending], "Alice", NOW)).toThrow("n° 3) n'est pas encore validée");
+  });
+
+  it("falls back on a request completed in the last day, for convoys sent while others completed it", () => {
+    const done = (closedAt: Date): ConvoyRequest => ({ ...active(5, alice), status: "done", closedAt });
+    expect(requestForRecipient([done(new Date("2026-10-10T02:00:00Z"))], "Alice", NOW).id).toBe(5);
+    expect(() => requestForRecipient([done(new Date("2026-10-09T02:00:00Z"))], "Alice", NOW)).toThrow(
+      "Aucune demande en cours",
+    );
   });
 
   it("asks for the number when the recipient has several active requests", () => {
-    expect(() => requestForRecipient([active(1, alice), active(4, alice)], "Alice")).toThrow("n° 1, n° 4");
+    expect(() => requestForRecipient([active(1, alice), active(4, alice)], "Alice", NOW)).toThrow("n° 1, n° 4");
   });
 });

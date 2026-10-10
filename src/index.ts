@@ -24,6 +24,20 @@ client.once(Events.ClientReady, (ready) => {
   ready.on(Events.MessageCreate, (message) => void onConvoyChannelMessage(message, context));
 });
 
+// Without these, a gateway error or a forgotten promise would stop the bot instead of being logged.
+client.on(Events.Error, (error) => {
+  console.error("Discord client error", error);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection", reason);
+});
+// PM2 stops the bot with SIGINT; close the gateway connection cleanly.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    void client.destroy().finally(() => process.exit(0));
+  });
+}
+
 async function handle(interaction: Interaction, context: CommandContext): Promise<void> {
   if (!interaction.isChatInputCommand() && !interaction.isModalSubmit()) return;
   const name = interaction.isChatInputCommand() ? interaction.commandName : interaction.customId;

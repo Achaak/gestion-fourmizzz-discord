@@ -36,6 +36,7 @@ Authentification du bot : un secret partagé dans un en-tête (`Authorization: B
 
 - Un membre (`requester`, `by`) est envoyé par son identifiant Discord ; l'API le relie au joueur.
 - Une demande renvoyée a la forme de `ConvoyRequest` (`src/convoy/request.ts`) : statut `pending | active | done | cancelled`, dates en ISO 8601, `dueDate` en `YYYY-MM-DD`.
+- `POST …/deliveries` accepte une demande `done` (le surplus est gardé, le statut ne change pas) et doit ignorer une livraison déjà enregistrée du même membre (mêmes quantités, `arrivesAt` à 2 min près) : le bot retraite au démarrage les messages qu'il n'a pas pu supprimer. Le bot vérifie les règles sur toutes les demandes avant d'écrire ; une route qui reçoit les livraisons de plusieurs demandes d'un coup rendrait l'écriture vraiment atomique.
 - Une règle enfreinte (livrer une demande en attente, valider deux fois…) répond **409** avec `{ "error": "message en français pour le joueur" }`. Le bot le montre tel quel (`ConvoyError`). Une demande inconnue répond 404.
 - Les règles vivent alors dans l'API ; celles de `src/convoy/request.ts` servent de référence et de tests.
 

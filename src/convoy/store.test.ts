@@ -57,6 +57,34 @@ describe("MemoryConvoyStore", () => {
     expect(progress(request)).toBe(0.5);
   });
 
+  it("refuses a wanted date already past", async () => {
+    const store = newStore();
+    const input = { requester: alice, building: "Couveuse", level: 18, amounts: { food: 0, materials: 1 } };
+    await expect(store.create({ ...input, dueDate: "2026-10-09" })).rejects.toThrow("déjà passée");
+    expect((await store.create({ ...input, dueDate: "2026-10-10" })).dueDate).toBe("2026-10-10");
+  });
+
+  it("still records convoys sent to a request others completed meanwhile, as surplus", async () => {
+    const store = newStore();
+    const { id } = await ask(store);
+    await store.validate(id, chief);
+    const done = await store.deliver(id, chloe, [{ amounts: { food: 0, materials: 1_000 }, arrivesAt: null }]);
+    const late = await store.deliver(id, chief, [{ amounts: { food: 0, materials: 500 }, arrivesAt: null }]);
+    expect(late.status).toBe("done");
+    expect(late.closedAt).toEqual(done.closedAt);
+    expect(late.deliveries).toHaveLength(2);
+  });
+
+  it("refuses deliveries on a cancelled request", async () => {
+    const store = newStore();
+    const { id } = await ask(store);
+    await store.validate(id, chief);
+    await store.cancel(id, alice, false);
+    await expect(store.deliver(id, chloe, [{ amounts: { food: 0, materials: 1 }, arrivesAt: null }])).rejects.toThrow(
+      "est annulée",
+    );
+  });
+
   it("refuses validating twice", async () => {
     const store = newStore();
     const { id } = await ask(store);

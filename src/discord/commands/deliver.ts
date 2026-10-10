@@ -43,19 +43,19 @@ export const deliverCommand: Command = {
   },
 
   async submit(interaction, { store, board }) {
-    const lines = parseConvoyLines(interaction.fields.getTextInputValue(CONVOYS_FIELD), new Date());
+    const lines = parseConvoyLines(interaction.fields.getTextInputValue(CONVOYS_FIELD), interaction.createdAt);
     if (lines.length === 0) {
       throw new ConvoyError("Aucun convoi reconnu : collez les lignes du jeu « Vous allez livrer … à … dans … ».");
     }
     const forcedId = readNumber(interaction.fields.getTextInputValue(NUMBER_FIELD));
 
-    let results;
+    let declaration;
     try {
-      results = await declareConvoys(store, memberOf(interaction), lines, forcedId);
+      declaration = await declareConvoys(store, memberOf(interaction), lines, forcedId, interaction.createdAt);
     } finally {
       await board.refresh();
     }
-    await replyPrivately(interaction, declarationSummary(lines.length, results));
+    await replyPrivately(interaction, declarationSummary(declaration));
   },
 };
 

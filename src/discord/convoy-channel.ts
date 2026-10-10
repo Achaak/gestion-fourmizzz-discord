@@ -14,14 +14,14 @@ export async function onConvoyChannelMessage(message: Message, { store, board }:
     const lines = parseConvoyLines(message.content, message.createdAt);
     if (lines.length === 0) return;
     const by = { discordId: message.author.id, name: message.member?.displayName ?? message.author.displayName };
-    let results;
+    let declaration;
     try {
-      results = await declareConvoys(store, by, lines, null);
+      declaration = await declareConvoys(store, by, lines, null, message.createdAt);
     } finally {
       await board.refresh();
     }
     await board.notice(
-      `${message.author.toString()} ${declarationSummary(lines.length, results)}`,
+      `${message.author.toString()} ${declarationSummary(declaration)}`,
       "success",
       CONFIRMATION_LIFETIME_MS,
     );
@@ -41,6 +41,13 @@ export async function onConvoyChannelMessage(message: Message, { store, board }:
 /** At startup: publishes the board, then handles what members posted while the bot was away. */
 export async function startConvoyChannel(context: CommandContext): Promise<void> {
   try {
+    const missing = await context.board.missingPermissions();
+    if (missing.length > 0) {
+      console.error(
+        `Permissions manquantes dans le salon des convois : ${missing.join(", ")}. ` +
+          "Le bot ne peut pas tenir le tableau ni vider le salon tant qu'un admin ne les lui donne pas.",
+      );
+    }
     for (const message of await context.board.start()) await onConvoyChannelMessage(message, context);
   } catch (error) {
     console.error("Convoy channel startup failed", error);

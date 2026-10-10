@@ -2,9 +2,12 @@ import {
   type Client,
   ComponentType,
   ContainerBuilder,
+  DiscordAPIError,
   type GuildTextBasedChannel,
   type Message,
   MessageFlags,
+  PermissionFlagsBits,
+  RESTJSONErrorCodes,
   SeparatorSpacingSize,
   TextDisplayBuilder,
 } from "discord.js";
@@ -25,6 +28,8 @@ export class BoardPublisher {
   private message: Message | null = null;
   /** Refreshes run one after the other so two quick commands cannot post two boards. */
   private queue: Promise<void> = Promise.resolve();
+  /** A refresh waiting its turn: later changes join it instead of editing the board once each. */
+  private waiting: Promise<void> | null = null;
   private arrivalTimer: NodeJS.Timeout | undefined;
 
   constructor(client: Client<true>, channelId: string, store: ConvoyStore) {
@@ -33,8 +38,22 @@ export class BoardPublisher {
     this.store = store;
   }
 
+  /** Resolves once the board shows every change made before the call. */
   refresh(): Promise<void> {
-    return this.enqueue("Board refresh", () => this.publish());
+    this.waiting ??= this.enqueue("Board refresh", () => {
+      this.waiting = null;
+      return this.publish();
+    });
+    return this.waiting;
+  }
+
+  /** What the bot lacks in the convoy channel to keep the board and empty the channel (docs/adr/0002). */
+  async missingPermissions(): Promise<string[]> {
+    const channel = await this.channel();
+    const granted = channel.permissionsFor(this.client.user);
+    return Object.entries(REQUIRED_PERMISSIONS)
+      .filter(([, flag]) => !granted?.has(flag))
+      .map(([name]) => name);
   }
 
   /**
@@ -105,8 +124,14 @@ export class BoardPublisher {
     } as const;
     this.message ??= await this.findBoard();
     if (this.message) {
-      this.message = await this.message.edit(payload);
-      return;
+      try {
+        this.message = await this.message.edit(payload);
+        return;
+      } catch (error) {
+        // Someone deleted the board: post a new one instead of failing on every refresh.
+        if (!(error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownMessage)) throw error;
+        this.message = null;
+      }
     }
     const channel = await this.channel();
     this.message = await channel.send(payload);
@@ -153,6 +178,14 @@ export class BoardPublisher {
 }
 
 const NOTICE_ACCENT = { success: 0x3ba55c, error: 0xed4245 } as const;
+
+/** Named as in Discord's French interface, for the server admins. */
+const REQUIRED_PERMISSIONS = {
+  "Voir le salon": PermissionFlagsBits.ViewChannel,
+  "Envoyer des messages": PermissionFlagsBits.SendMessages,
+  "Voir les anciens messages": PermissionFlagsBits.ReadMessageHistory,
+  "Gérer les messages": PermissionFlagsBits.ManageMessages,
+} satisfies Record<string, bigint>;
 
 /** Lays the board out: header, one box per section with thin lines between its blocks, footer. */
 function toComponents(board: Board): (TextDisplayBuilder | ContainerBuilder)[] {
